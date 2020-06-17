@@ -11,21 +11,17 @@ RPC_KEY_PARAMETERS = 'p'
 CR = '\r'
 
 
-class RPCMessage:
-    def is_error(self):
-        return False
+class RPCBaseMessage:
+    def is_error(self): False
 
-    def is_response(self):
-        return False
+    def is_response(self): False
 
-    def is_request(self):
-        return False
+    def is_request(self): False
 
-    def is_notification(self):
-        return False
+    def is_notification(self): False
 
 
-class RPCNotification(RPCMessage):
+class RPCNotification(RPCBaseMessage):
     def __init__(self, method: Union[str, int], parameters: any):
         self.method = method
         self.parameters = parameters
@@ -34,12 +30,15 @@ class RPCNotification(RPCMessage):
         return True
 
     def __str__(self):
-        return 'RPCNotification [method: {method}, parameters: {parameters}]'.format(self)
+        return 'RPCNotification [method: {}, parameters: {}]'.format(
+            self.method,
+            self.parameters
+        )
 
 
-class RPCError(RPCMessage):
-    def __init__(self, id: str, exception_data: str):
-        self.id = id
+class RPCError(RPCBaseMessage):
+    def __init__(self, idx: str, exception_data: str):
+        self.id = idx
         decoded_exception_data = b64decode(exception_data)
         self.exception = str(decoded_exception_data, 'utf-8')
 
@@ -47,21 +46,24 @@ class RPCError(RPCMessage):
         return True
 
     def __str__(self):
-        return 'RPCError [id: {id}, exception: {exception}]'.format(self)
+        return 'RPCError [id: {}, exception: {}]'.format(
+            self.id,
+            self.exception
+        )
 
 
-class RPCResponse(RPCMessage):
-    def __init__(self, id: str, result: any):
-        self.id = id
+class RPCResponse(RPCBaseMessage):
+    def __init__(self, idx: str, result: any):
+        self.id = idx
         self.result = result
 
     def is_response(self):
         return True
 
 
-class RPCRequest(RPCMessage):
-    def __init__(self, id: str, method: str, parameters: any):
-        self.id = id
+class RPCRequest(RPCBaseMessage):
+    def __init__(self, idx: str, method: str, parameters: any):
+        self.id = idx
         self.method = method
         self.parameters = parameters
 
@@ -89,17 +91,17 @@ def to_json(obj: any) -> str:
     return json.dumps(obj, separators=(',', ':')) + CR
 
 
-def request(id: str, method: str, parameters: any) -> str:
+def request(idx: str, method: str, parameters: any) -> str:
     return to_json({
-        RPC_KEY_ID: id,
+        RPC_KEY_ID: idx,
         RPC_KEY_METHOD: method,
         RPC_KEY_PARAMETERS: parameters
     })
 
 
-def response(id: str, response: any) -> str:
+def response(idx: str, response: any) -> str:
     return to_json({
-        RPC_KEY_ID: id,
+        RPC_KEY_ID: idx,
         RPC_KEY_RESULT: response
     })
 
@@ -109,6 +111,9 @@ def notification(method: str, parameters: any) -> str:
         RPC_KEY_METHOD: method,
         RPC_KEY_PARAMETERS: parameters
     })
+
+
+RPCMessage = Union[RPCBaseMessage, RPCNotification, RPCResponse, RPCError, RPCRequest]
 
 
 def decode(msg: Dict[str, any]) -> RPCMessage:

@@ -2,7 +2,8 @@ from serial import Serial
 from serial.serialutil import CR
 from ujsonrpc import request, decode, RPCError, RPCResponse, RPCNotification
 import json
-from model import notifications
+from model.notifications import decode as decode_notification, SensorNotification
+import traceback
 
 connection = Serial(port='COM3', baudrate=115200)
 connection.flushInput()
@@ -17,16 +18,17 @@ while True:
         decoded = decode(msg)
         if decoded.is_error():
             err: RPCError = decoded
-            print(err.exception)
+            print('error {}'.format(err.exception))
         elif decoded.is_response():
-            print('response')
             res: RPCResponse = decoded
-            print(res.result)
+            print('response {}'.format(res.result))
         elif decoded.is_notification():
             notification: RPCNotification = decoded
-            spike_notification = notifications.decode(notification)
-            print(spike_notification)
+            spike_notification = decode_notification(notification)
+            if not isinstance(spike_notification, SensorNotification):
+                print(spike_notification)
 
     except Exception as err:
         print(msg)
         print(err)
+        traceback.print_exc()
