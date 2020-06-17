@@ -113,10 +113,7 @@ def notification(method: str, parameters: any) -> str:
     })
 
 
-RPCMessage = Union[RPCBaseMessage, RPCNotification, RPCResponse, RPCError, RPCRequest]
-
-
-def decode(msg: Dict[str, any]) -> RPCMessage:
+def decode(msg: Dict[str, any]) -> RPCBaseMessage:
     if is_notification(msg):  # Check notifications first as those are more frequent
         return RPCNotification(msg[RPC_KEY_METHOD], msg[RPC_KEY_PARAMETERS])
     elif is_response(msg):

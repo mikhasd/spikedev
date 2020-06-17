@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from base64 import b64decode
 from enum import Enum
-from typing import List, Optional, Callable, Union, Dict
+from typing import List, Optional, Callable, Dict
 
 from ujsonrpc import RPCNotification
 
@@ -39,6 +40,7 @@ class SensorType(Enum):
         obj._value_ = idx
         return obj
 
+    # noinspection PyUnusedLocal
     def __init__(self, idx: int, modes: Optional[List[int]] = None):
         super(Enum, self).__init__()
         self.modes = modes if modes else [0]
@@ -64,7 +66,7 @@ def _decode_battery_status(notification: RPCNotification) -> BatteryStatusNotifi
 
 
 def _decode_storage_information(notification: RPCNotification) -> StorageInformationNotification:
-    data = notification.data
+    data = notification.parameters
     return StorageInformationNotification(
         data.total,
         data.available,
@@ -123,28 +125,64 @@ def _decode_button_event(notification: RPCNotification) -> ButtonNotification:
 
 
 def _decode_stack_start(notification: RPCNotification) -> StackStartNotification:
-    data = b64decode(notification.parameters)
-    return StackStartNotification(data)
+    stack_id = b64decode(notification.parameters)
+    return StackStartNotification(stack_id)
 
 
 def _decode_stack_stop(notification: RPCNotification) -> StackStopNotification:
-    data = b64decode(notification.parameters)
-    return StackStartNotification(data)
+    stack_id = b64decode(notification.parameters)
+    return StackStopNotification(stack_id)
+
+
+def _decode_vm_state(notification: RPCNotification) -> VmStateNotification:
+    [target, variables, lists, store] = notification.parameters
+    return VmStateNotification(
+        target,
+        variables,
+        lists,
+        store
+    )
+
+
+def _decode_program_running(notification: RPCNotification) -> ProgramRunningNotification:
+    [project_id, running] = notification.parameters
+    return ProgramRunningNotification(
+        project_id,
+        running
+    )
+
+
+def _decode_info_status(notification: RPCNotification) -> InfoStatusNotification:
+    [encoded_name] = notification.parameters
+    encoded_name_utf8_bytes = b64decode(encoded_name)
+    name = str(encoded_name_utf8_bytes, 'utf-8')
+    return InfoStatusNotification(
+        name
+    )
+
+
+def _decode_error(notification: RPCNotification) -> ErrorNotification:
+    [error_type, message] = notification.parameters
+    return ErrorNotification(
+        error_type,
+        message
+    )
 
 
 class NotificationType(Enum):
-    SENSOR_DATA = 0, _decode_sensor_notification
-    STORAGE_INFO = 1, _decode_storage_information
-    BATTERY_STATUS = 2, _decode_battery_status
-    BUTTON_EVENT = 3, _decode_button_event
+    Sensor = 0, _decode_sensor_notification
+    Storage = 1, _decode_storage_information
+    Battery = 2, _decode_battery_status
+    Button = 3, _decode_button_event
     GESTURE_STATUS_NOTIFICATION = 4
     DISPLAY_STATUS_NOTIFICATION = 5
     FIRMWARE_STATUS_NOTIFICATION = 6
-    STACK_START_NOTIFICATION = 7, _decode_stack_start
-    STACK_STOP_NOTIFICATION = 8, _decode_stack_stop
-    INFO_STATUS_NOTIFICATION = 9
-    ERROR_NOTIFICATION = 10
-    VM_STATE_NOTIFICATION = 11
+    StackStart = 7, _decode_stack_start
+    StackStop = 8, _decode_stack_stop
+    Info = 9, _decode_info_status
+    Error = 10, _decode_error
+    VMState = 11, _decode_vm_state
+    ProgramRunning = 12, _decode_program_running
 
     def __new__(cls, *args, **kwargs):
         idx = args[0]
@@ -152,6 +190,7 @@ class NotificationType(Enum):
         obj._value_ = idx
         return obj
 
+    # noinspection PyUnusedLocal
     def __init__(self, idx: int, decoder: Callable[[RPCNotification], BaseNotification] = None):
         super(Enum, self).__init__()
         self.decoder = decoder if decoder else lambda n: n
@@ -170,6 +209,7 @@ class NotificationType(Enum):
 
 class BaseNotification:
 
+    # noinspection PyPropertyDefinition
     @property
     def type(self) -> NotificationType: pass
 
@@ -190,23 +230,12 @@ class SensorNotification(BaseNotification):
         self.F = f
 
     @property
-    def type(self) -> NotificationType: NotificationType.SENSOR_DATA
+    def type(self) -> NotificationType: return NotificationType.Sensor
 
     def __str__(self):
-        return 'SensorNotification [type: {}, accelerometer: {}, gyroscope: {}, position: {}, time: {}, leds: {}, A: {}, B: {}, C: {}, D: {}, E: {}, F: {}]'.format(
-            self.type,
-            self.accelerometer,
-            self.gyroscope,
-            self.position,
-            self.time,
-            self.leds,
-            self.A,
-            self.B,
-            self.C,
-            self.D,
-            self.E,
-            self.F
-        )
+        return f'SensorNotification [accelerometer: {self.accelerometer}, gyroscope: {self.gyroscope}, ' \
+               f'position: {self.position}, time: {self.time}, leds: {self.leds}, A: {self.A}, B: {self.B}, ' \
+               f'C: {self.C}, D: {self.D}, E: {self.E}, F: {self.F}] '
 
 
 # noinspection PyPropertyDefinition
@@ -236,8 +265,7 @@ class SlotInformation:
 
 class StorageInformationNotification(BaseNotification):
 
-    def __init__(self, total: int, available: int, pct: float, unit: Union['kb', 'mb'],
-                 slots: Dict[str, SlotInformation]):
+    def __init__(self, total: int, available: int, pct: float, unit: str, slots: Dict[str, SlotInformation]):
         self.total = total
         self.available = available
         self.pct = pct
@@ -245,17 +273,11 @@ class StorageInformationNotification(BaseNotification):
         self.slots = slots
 
     @property
-    def type(self) -> NotificationType: NotificationType.STORAGE_INFO
+    def type(self) -> NotificationType: return NotificationType.Storage
 
     def __str__(self) -> str:
-        return 'StorageInformationNotification [type: {}, total: {}, available: {}, pct: {}, unit: {}, slots: {}]'.format(
-            self.type,
-            self.total,
-            self.available,
-            self.pct,
-            self.unit,
-            self.slots
-        )
+        return f'StorageInformationNotification [total: {self.total}, available: {self.available}, pct: {self.pct}, ' \
+               f'unit: {self.unit}, slots: {self.slots}]'
 
 
 class BatteryStatusNotification(BaseNotification):
@@ -265,14 +287,10 @@ class BatteryStatusNotification(BaseNotification):
         self.percentage = percentage
 
     @property
-    def type(self) -> NotificationType: NotificationType.BATTERY_STATUS
+    def type(self) -> NotificationType: return NotificationType.Battery
 
     def __str__(self) -> str:
-        return 'BatteryStatusNotification [type: {}, voltage: {}, percentage: {}]'.format(
-            self.type,
-            self.voltage,
-            self.percentage
-        )
+        return f'BatteryStatusNotification [voltage: {self.voltage}, percentage: {self.percentage}]'
 
 
 class ButtonNotification(BaseNotification):
@@ -282,51 +300,95 @@ class ButtonNotification(BaseNotification):
         self.pressed = pressed
 
     @property
-    def type(self) -> NotificationType: NotificationType.BUTTON_EVENT
+    def type(self) -> NotificationType: return NotificationType.Button
 
     def __str__(self) -> str:
-        return 'ButtonNotification [type: {}, button: {}, pressed: {}]'.format(
-            self.type,
-            self.button,
-            self.pressed
-        )
+        return f'ButtonNotification [button: {self.button}, pressed: {self.pressed}]'
 
 
 class StackStartNotification(BaseNotification):
 
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, stack_id: str):
+        self.stack_id = stack_id
 
     @property
-    def type(self) -> NotificationType: NotificationType.STACK_START_NOTIFICATION
+    def type(self) -> NotificationType: return NotificationType.StackStart
 
     def __str__(self) -> str:
-        return 'StackStartNotification [type: {}, data: {}]'.format(
-            self.type,
-            self.data,
-        )
+        return f'StackStartNotification [stack_id: {self.stack_id}]'
 
 
 class StackStopNotification(BaseNotification):
 
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, stack_id: str):
+        self.stack_id = stack_id
 
     @property
-    def type(self) -> NotificationType: NotificationType.STACK_STOP_NOTIFICATION
+    def type(self) -> NotificationType: return NotificationType.StackStop
 
     def __str__(self) -> str:
-        return 'StackStopNotification [type: {}, data: {}]'.format(
+        return f'StackStopNotification [stack_id: {self.stack_id}]'
+
+
+class VmStateNotification(BaseNotification):
+
+    def __init__(self, target: str, variables, lists, store):
+        self.target = target
+        self.variables = variables
+        self.lists = lists
+        self.store = store
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.VMState
+
+    def __str__(self) -> str:
+        return 'VmStateNotification [target: {}, variables: {}, lists: {}, store: {}]'.format(
             self.type,
-            self.data,
+            self.target,
+            self.variables,
+            self.lists,
+            self.store
         )
 
 
-Notification = Union[
-    BaseNotification, SensorNotification, StorageInformationNotification, BatteryStatusNotification, ButtonNotification,
-    StackStartNotification, StackStartNotification]
+class ProgramRunningNotification(BaseNotification):
+
+    def __init__(self, project_id: str, running: bool):
+        self.project_id = project_id
+        self.running = running
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.ProgramRunning
+
+    def __str__(self) -> str:
+        return f'ProgramRunningNotification [project_id: {self.project_id}, running: {self.running}]'
 
 
-def decode(notification: RPCNotification) -> Optional[Notification]:
+class InfoStatusNotification(BaseNotification):
+
+    def __init__(self, name: str):
+        self.name = name
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.ProgramRunning
+
+    def __str__(self) -> str:
+        return f'InfoStatusNotification [name: {self.name}]'
+
+
+class ErrorNotification(BaseNotification):
+
+    def __init__(self, error_type: str, message: str):
+        self.error_type = error_type
+        self.message = message
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.Error
+
+    def __str__(self) -> str:
+        return f'ErrorNotification [error_type: {self.error_type}, message: {self.message}]'
+
+
+def decode(notification: RPCNotification) -> Optional[BaseNotification]:
     notification_type = NotificationType.value_of(notification.method)
     return notification_type.decoder(notification) if notification_type is not None else None
