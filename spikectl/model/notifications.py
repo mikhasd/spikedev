@@ -125,12 +125,12 @@ def _decode_button_event(notification: RPCNotification) -> ButtonNotification:
 
 
 def _decode_stack_start(notification: RPCNotification) -> StackStartNotification:
-    stack_id = b64decode(notification.parameters)
+    stack_id = notification.parameters
     return StackStartNotification(stack_id)
 
 
 def _decode_stack_stop(notification: RPCNotification) -> StackStopNotification:
-    stack_id = b64decode(notification.parameters)
+    stack_id = notification.parameters
     return StackStopNotification(stack_id)
 
 
@@ -169,20 +169,47 @@ def _decode_error(notification: RPCNotification) -> ErrorNotification:
     )
 
 
+def _decode_gesture(notification: RPCNotification) -> GestureNotification:
+    gesture = notification.parameters
+    return GestureNotification(
+        gesture
+    )
+
+
+def _decode_firmware(notification: RPCNotification) -> FirmwareNotification:
+    [version, hash, runtime] = notification.parameters
+    return FirmwareNotification(
+        version, hash, runtime
+    )
+
+
+def _decoded_display_status(notification: RPCNotification) -> DisplayStatusNotification:
+    return DisplayStatusNotification(notification.parameters)
+
+
+def _decode_user_program_print(notification: RPCNotification) -> UserProgramPrintNotification:
+    return UserProgramPrintNotification(notification.parameters)
+
+
+def _decode_unknown(notification: RPCNotification) -> UnknownNotification:
+    return UnknownNotification(notification)
+
+
 class NotificationType(Enum):
     Sensor = 0, _decode_sensor_notification
     Storage = 1, _decode_storage_information
     Battery = 2, _decode_battery_status
     Button = 3, _decode_button_event
-    GESTURE_STATUS_NOTIFICATION = 4
-    DISPLAY_STATUS_NOTIFICATION = 5
-    FIRMWARE_STATUS_NOTIFICATION = 6
+    Gesture = 4, _decode_gesture
+    DisplayStatus = 5, _decoded_display_status
+    Firmware = 6, _decode_firmware
     StackStart = 7, _decode_stack_start
     StackStop = 8, _decode_stack_stop
     Info = 9, _decode_info_status
     Error = 10, _decode_error
     VMState = 11, _decode_vm_state
     ProgramRunning = 12, _decode_program_running
+    UserProgramPrint = 'userProgram.print',
 
     def __new__(cls, *args, **kwargs):
         idx = args[0]
@@ -191,7 +218,7 @@ class NotificationType(Enum):
         return obj
 
     # noinspection PyUnusedLocal
-    def __init__(self, idx: int, decoder: Callable[[RPCNotification], BaseNotification] = None):
+    def __init__(self, idx: int, decoder: Callable[[RPCNotification], BaseNotification] = _decode_unknown):
         super(Enum, self).__init__()
         self.decoder = decoder if decoder else lambda n: n
 
@@ -342,13 +369,8 @@ class VmStateNotification(BaseNotification):
     def type(self) -> NotificationType: return NotificationType.VMState
 
     def __str__(self) -> str:
-        return 'VmStateNotification [target: {}, variables: {}, lists: {}, store: {}]'.format(
-            self.type,
-            self.target,
-            self.variables,
-            self.lists,
-            self.store
-        )
+        return f'VmStateNotification [target: {self.target}, variables: {self.variables}, lists: {self.lists},' \
+               f' store: {self.store}]'
 
 
 class ProgramRunningNotification(BaseNotification):
@@ -389,6 +411,69 @@ class ErrorNotification(BaseNotification):
         return f'ErrorNotification [error_type: {self.error_type}, message: {self.message}]'
 
 
+class GestureNotification(BaseNotification):
+
+    def __init__(self, gesture: str):
+        self.gesture = gesture
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.Gesture
+
+    def __str__(self) -> str:
+        return f'GestureNotification [gesture: {self.gesture}]'
+
+
+class FirmwareNotification(BaseNotification):
+
+    def __init__(self, version: List[int], hash: str, runtime: int):
+        self.version = version
+        self.hash = hash
+        self.runtime = runtime
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.Firmware
+
+    def __str__(self) -> str:
+        return f'FirmwareNotification [version: {self.version}, hash: {self.hash}, runtime: {self.runtime}]'
+
+
+class DisplayStatusNotification(BaseNotification):
+
+    def __init__(self, parameters: any):
+        self.parameters = parameters
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.DisplayStatus
+
+    def __str__(self) -> str:
+        return f'DisplayStatusNotification [parameters: {self.parameters}]'
+
+
+class UserProgramPrintNotification(BaseNotification):
+
+    def __init__(self, message: str):
+        self.message = message
+
+    @property
+    def type(self) -> NotificationType: return NotificationType.UserProgramPrint
+
+    def __str__(self) -> str:
+        return f'UserProgramPrintNotification [message: {self.message}]'
+
+
+class UnknownNotification(BaseNotification):
+
+    def __init__(self, source: any):
+        self.source = source
+
+    @property
+    def type(self) -> NotificationType: return None
+
+    def __str__(self) -> str:
+        return f'UnknownNotification [source: {self.source}]'
+
+
 def decode(notification: RPCNotification) -> Optional[BaseNotification]:
     notification_type = NotificationType.value_of(notification.method)
-    return notification_type.decoder(notification) if notification_type is not None else None
+    return notification_type.decoder(notification) if notification_type is not None else UnknownNotification(
+        notification)
