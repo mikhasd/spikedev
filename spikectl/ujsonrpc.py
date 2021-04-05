@@ -87,27 +87,27 @@ def is_notification(msg) -> bool:
     return RPC_KEY_METHOD in msg and RPC_KEY_PARAMETERS in msg and RPC_KEY_ID not in msg
 
 
-def to_json(obj: any) -> str:
+def _to_json(obj: any) -> str:
     return json.dumps(obj, separators=(',', ':')) + CR
 
 
-def request(idx: str, method: str, parameters: any) -> str:
-    return to_json({
+def encode_request(idx: str, method: str, parameters: any) -> str:
+    return _to_json({
         RPC_KEY_ID: idx,
         RPC_KEY_METHOD: method,
         RPC_KEY_PARAMETERS: parameters
     })
 
 
-def response(idx: str, response: any) -> str:
-    return to_json({
+def encode_response(idx: str, response: any) -> str:
+    return _to_json({
         RPC_KEY_ID: idx,
         RPC_KEY_RESULT: response
     })
 
 
-def notification(method: str, parameters: any) -> str:
-    return to_json({
+def encode_notification(method: str, parameters: any) -> str:
+    return _to_json({
         RPC_KEY_METHOD: method,
         RPC_KEY_PARAMETERS: parameters
     })
@@ -122,3 +122,15 @@ def decode(msg: Dict[str, any]) -> RPCBaseMessage:
         return RPCError(msg[RPC_KEY_ID], msg[RPC_KEY_ERROR])
     elif is_request(msg):
         return RPCRequest(msg[RPC_KEY_ID], msg[RPC_KEY_METHOD], msg[RPC_KEY_PARAMETERS])
+
+def encode_message(msg: Union[RPCBaseMessage]) -> str:
+    if isinstance(msg, RPCBaseMessage):
+        if msg.is_request():
+            request: RPCRequest = msg
+            return encode_request(
+                request.id,
+                request.method,
+                request.parameters
+            )
+
+    raise Exception(f'Unexcpected message type {type(msg)}')
