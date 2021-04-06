@@ -4,7 +4,7 @@ from base64 import b64decode
 from enum import Enum
 from typing import List, Optional, Callable, Dict
 
-from ujsonrpc import RPCNotification
+from spikectl.ujsonrpc import RPCNotification
 
 
 class SensorDataIndex(Enum):
@@ -67,12 +67,13 @@ def _decode_battery_status(notification: RPCNotification) -> BatteryStatusNotifi
 
 def _decode_storage_information(notification: RPCNotification) -> StorageInformationNotification:
     data = notification.parameters
+    storage = data['storage']
     return StorageInformationNotification(
-        data.total,
-        data.available,
-        data.pct,
-        data.unit,
-        data.slots
+        storage['total'],
+        storage['available'],
+        storage['pct'],
+        storage['unit'],
+        data['slots']
     )
 
 
@@ -243,6 +244,8 @@ class BaseNotification:
 
 class SensorNotification(BaseNotification):
 
+    __slots__ = ['accelerometer', 'gyroscope', 'position', 'time', 'leds', 'A', 'B', 'C', 'D', 'E', 'F']
+
     def __init__(self, accelerometer, gyroscope, position, time, leds, a, b, c, d, e, f):
         self.accelerometer = accelerometer
         self.gyroscope = gyroscope
@@ -292,6 +295,8 @@ class SlotInformation:
 
 class StorageInformationNotification(BaseNotification):
 
+    __slots__ = ['total', 'available', 'pct', 'unit', 'slots']
+
     def __init__(self, total: int, available: int, pct: float, unit: str, slots: Dict[str, SlotInformation]):
         self.total = total
         self.available = available
@@ -309,6 +314,8 @@ class StorageInformationNotification(BaseNotification):
 
 class BatteryStatusNotification(BaseNotification):
 
+    __slots__ = ['voltage', 'percentage']
+
     def __init__(self, voltage: float, percentage: int):
         self.voltage = voltage
         self.percentage = percentage
@@ -321,6 +328,8 @@ class BatteryStatusNotification(BaseNotification):
 
 
 class ButtonNotification(BaseNotification):
+
+    __slots__ = ['button', 'pressed']
 
     def __init__(self, button: str, pressed: bool):
         self.button = button
@@ -335,6 +344,8 @@ class ButtonNotification(BaseNotification):
 
 class StackStartNotification(BaseNotification):
 
+    __slots__ = ['stack_id']
+
     def __init__(self, stack_id: str):
         self.stack_id = stack_id
 
@@ -347,6 +358,8 @@ class StackStartNotification(BaseNotification):
 
 class StackStopNotification(BaseNotification):
 
+    __slots__ = ['stack_id']
+
     def __init__(self, stack_id: str):
         self.stack_id = stack_id
 
@@ -358,6 +371,8 @@ class StackStopNotification(BaseNotification):
 
 
 class VmStateNotification(BaseNotification):
+
+    __slots__ = ['target', 'variables', 'lists', 'store']
 
     def __init__(self, target: str, variables, lists, store):
         self.target = target
@@ -375,6 +390,8 @@ class VmStateNotification(BaseNotification):
 
 class ProgramRunningNotification(BaseNotification):
 
+    __slots__ = ['project_id', 'running']
+
     def __init__(self, project_id: str, running: bool):
         self.project_id = project_id
         self.running = running
@@ -388,6 +405,8 @@ class ProgramRunningNotification(BaseNotification):
 
 class InfoStatusNotification(BaseNotification):
 
+    __slots__ = ['name']
+
     def __init__(self, name: str):
         self.name = name
 
@@ -399,6 +418,8 @@ class InfoStatusNotification(BaseNotification):
 
 
 class ErrorNotification(BaseNotification):
+
+    __slots__ = ['error_type', 'message']
 
     def __init__(self, error_type: str, message: str):
         self.error_type = error_type
@@ -413,6 +434,8 @@ class ErrorNotification(BaseNotification):
 
 class GestureNotification(BaseNotification):
 
+    __slots__ = ['gesture']
+
     def __init__(self, gesture: str):
         self.gesture = gesture
 
@@ -424,6 +447,8 @@ class GestureNotification(BaseNotification):
 
 
 class FirmwareNotification(BaseNotification):
+
+    __slots__ = ['version', 'hash', 'runtime']
 
     def __init__(self, version: List[int], hash: str, runtime: int):
         self.version = version
@@ -439,6 +464,8 @@ class FirmwareNotification(BaseNotification):
 
 class DisplayStatusNotification(BaseNotification):
 
+    __slots__ = ['parameters']
+
     def __init__(self, parameters: any):
         self.parameters = parameters
 
@@ -450,6 +477,8 @@ class DisplayStatusNotification(BaseNotification):
 
 
 class UserProgramPrintNotification(BaseNotification):
+
+    __slots__ = ['message']
 
     def __init__(self, message: str):
         self.message = message
@@ -463,6 +492,8 @@ class UserProgramPrintNotification(BaseNotification):
 
 class UnknownNotification(BaseNotification):
 
+    __slots__ = ['source']
+
     def __init__(self, source: any):
         self.source = source
 
@@ -473,7 +504,31 @@ class UnknownNotification(BaseNotification):
         return f'UnknownNotification [source: {self.source}]'
 
 
-def decode(notification: RPCNotification) -> Optional[BaseNotification]:
+def decode_notification(notification: RPCNotification) -> Optional[BaseNotification]:
     notification_type = NotificationType.value_of(notification.method)
     return notification_type.decoder(notification) if notification_type is not None else UnknownNotification(
         notification)
+
+__all__ = [
+    'SensorDataIndex',
+    'SensorType',
+    'NotificationType',
+    'BaseNotification',
+    'SensorNotification',
+    'SlotInformation',
+    'StorageInformationNotification',
+    'BatteryStatusNotification',
+    'ButtonNotification',
+    'StackStartNotification',
+    'StackStopNotification',
+    'VmStateNotification',
+    'ProgramRunningNotification',
+    'InfoStatusNotification',
+    'ErrorNotification',
+    'GestureNotification',
+    'FirmwareNotification',
+    'DisplayStatusNotification',
+    'UserProgramPrintNotification',
+    'UnknownNotification',
+    'decode_notification'
+]

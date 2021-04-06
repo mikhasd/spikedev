@@ -1,4 +1,4 @@
-from ujsonrpc import RPCRequest
+from spikectl.ujsonrpc import RPCRequest
 
 
 class MotorRunTimedRequest(RPCRequest):

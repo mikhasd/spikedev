@@ -1,6 +1,8 @@
 from typing import Dict, Union
 from base64 import b64decode
 import json
+import random
+import string
 
 RPC_KEY_ID = 'i'
 RPC_KEY_METHOD = 'm'
@@ -11,7 +13,7 @@ RPC_KEY_PARAMETERS = 'p'
 CR = '\r'
 
 
-class RPCBaseMessage:
+class RPCBaseMessage(object):
     def is_error(self): False
 
     def is_response(self): False
@@ -22,6 +24,9 @@ class RPCBaseMessage:
 
 
 class RPCNotification(RPCBaseMessage):
+
+    __slots__ = ['method', 'parameters']
+
     def __init__(self, method: Union[str, int], parameters: any):
         self.method = method
         self.parameters = parameters
@@ -37,6 +42,9 @@ class RPCNotification(RPCBaseMessage):
 
 
 class RPCError(RPCBaseMessage):
+
+    __slots__ = ['id', 'exception']
+
     def __init__(self, idx: str, exception_data: str):
         self.id = idx
         decoded_exception_data = b64decode(exception_data)
@@ -53,6 +61,9 @@ class RPCError(RPCBaseMessage):
 
 
 class RPCResponse(RPCBaseMessage):
+
+    __slots__ = ['id', 'result']
+
     def __init__(self, idx: str, result: any):
         self.id = idx
         self.result = result
@@ -60,10 +71,20 @@ class RPCResponse(RPCBaseMessage):
     def is_response(self):
         return True
 
+    def __str__(self):
+        return f'RPCResponse [id: {self.id}, result: {self.result}]'
+
+
+def gen_idx() -> str:
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=4))
+
 
 class RPCRequest(RPCBaseMessage):
-    def __init__(self, idx: str, method: str, parameters: any):
-        self.id = idx
+
+    __slots__ = ['id', 'method', 'parameters']
+
+    def __init__(self, method: str, parameters: any, idx: str):
+        self.id = idx if idx else gen_idx()
         self.method = method
         self.parameters = parameters
 
@@ -123,7 +144,7 @@ def decode(msg: Dict[str, any]) -> RPCBaseMessage:
     elif is_request(msg):
         return RPCRequest(msg[RPC_KEY_ID], msg[RPC_KEY_METHOD], msg[RPC_KEY_PARAMETERS])
 
-def encode_message(msg: Union[RPCBaseMessage]) -> str:
+def encode(msg: Union[RPCBaseMessage]) -> str:
     if isinstance(msg, RPCBaseMessage):
         if msg.is_request():
             request: RPCRequest = msg
@@ -134,3 +155,14 @@ def encode_message(msg: Union[RPCBaseMessage]) -> str:
             )
 
     raise Exception(f'Unexcpected message type {type(msg)}')
+
+
+__all__ = [
+    'encode',
+    'decode',
+    'RPCBaseMessage',
+    'RPCNotification',
+    'RPCError',
+    'RPCRequest',
+    'RPCResponse'
+]
