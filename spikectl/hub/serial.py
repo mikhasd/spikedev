@@ -1,11 +1,9 @@
-from typing import Callable, Type, Optional
+from typing import Callable, Optional
 import json
+from time import time
 
 from serial import Serial
 from serial.serialutil import CR
-from serial.tools.list_ports import comports
-
-from spikectl.model import TriggerCurrentStateRequest, InfoStatusNotification, BaseNotification, decode_notification
 
 from spikectl import ujsonrpc
 
@@ -24,12 +22,14 @@ class RawSerialHub(object):
         self.connection = connection
         connection.flushInput()
         # Discard first message
-        connection.read_until(terminator=CR)
-    
-    def listen(self, listener: Callable[[ujsonrpc.RPCBaseMessage], bool]):        
+        connection.read_until(expected=CR)
 
-        while True:
-            buffer = self.connection.read_until(terminator=CR)
+    def listen(self, listener: Callable[[ujsonrpc.RPCBaseMessage], bool], timeout: Optional[float] = None):
+
+        deadline = time() + timeout if timeout is not None else float('inf')
+
+        while time() < deadline:
+            buffer = self.connection.read_until(expected=CR)
             if not buffer:
                 raise EmptyBuffer()
             json_str = str(buffer, 'utf-8')

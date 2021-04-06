@@ -1,4 +1,4 @@
-from typing import Type, Optional, Union
+from typing import Type, Optional, Union, Callable
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -21,22 +21,32 @@ class SpikeHub(RawSerialHub):
 
     def __init__(self, connection: Serial):
         super().__init__(connection)
-    
-    def listen_notification(self, notification_type: Type = BaseNotification) -> Optional[BaseNotification]:
 
-        match: BaseNotification = None
+    def listen_notifications(self, listener: Callable[[ujsonrpc.RPCNotification], bool], notification_type: Type = BaseNotification):
 
         def notification_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:
             if msg.is_notification():
                 notification = decode_notification(msg)
                 if isinstance(notification, notification_type):
-                    nonlocal match
-                    match = notification                    
-                    return False
+                    return listener(notification)
             return True
         
         try:
-            self.listen(notification_listener)            
+            self.listen(notification_listener)
+        except EmptyBuffer:
+            return None
+    
+    def listen_notification(self, notification_type: Type = BaseNotification) -> Optional[BaseNotification]:
+
+        match: BaseNotification = None
+
+        def notification_listener(notification: BaseNotification) -> bool:
+            nonlocal match
+            match = notification                    
+            return False
+        
+        try:
+            self.listen_notifications(notification_listener, notification_type)
             return match
         except EmptyBuffer:
             return None
@@ -66,8 +76,6 @@ class SpikeHub(RawSerialHub):
         if response.is_error():
             raise SpikeHubException(response.exception)
         return response.result
-
-
     
     def trigger_current_state(self):
         request = TriggerCurrentStateRequest()
@@ -80,18 +88,17 @@ class SpikeHub(RawSerialHub):
 
     def display_clear(self):
         request = ScratchDisplayClearRequest()
-        self.send(request)
-        return self._invoke(request)
+        self._invoke(request)
 
     def display_set_pixel(self, x: int, y: int, brightness: int):
         assert 0 <= x <= 4 and 0 <= y <= 4 , 'x and y must be between 0 and 4'
         request = ScratchDisplaySetPixelRequest(x, y, brightness)
-        return self._invoke(request)
+        self._invoke(request)
         
     def set_button_color(self, color: int):
         assert 0 <= color <= 10, 'color must be between 0 and 10'
         request = ScratchCenterButtonLightRequest(color)
-        return self._invoke(request)
+        self._invoke(request)
 
 
 def find_hub(name: str) -> SpikeHub:
