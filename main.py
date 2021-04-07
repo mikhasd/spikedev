@@ -1,18 +1,23 @@
 import spikectl
+import spikectl.model
 import time
 
 spike_hub = spikectl.find_hub('mp8')
 
-spike_hub.display_clear()
+spike_hub.display.clear()
 
-count = 10
-def handler(n):    
-    global count
-    count = count - 1
-    print(n.percentage)
-    return count >= 0
+#battery_status = spike_hub.listen_notification(spikectl.model.BatteryStatusNotification)
+#print(battery_status.percentage)
 
-spike_hub.trigger_current_state()
-spike_hub.listen_notifications(handler, spikectl.model.BatteryStatusNotification)
+#spike_hub.display.display_text('')
+
+#spike_hub.motor('F').run_timed(600, 100)
+#spike_hub.motor('F').run_timed(600, -100)
+
+#spike_hub.motor('F').go_to(65, 0, 'shortest')
+
+spike_hub.motor('F').rotate(100, 30, True, 1)
+
+
 
 spike_hub.close()

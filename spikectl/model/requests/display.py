@@ -1,10 +1,5 @@
 from spikectl.ujsonrpc import RPCRequest
 
-class ScratchDisplayClearRequest(RPCRequest):
-
-    def __init__(self, idx: str = None):
-        super().__init__('scratch.display_clear', {}, idx=idx)
-
 
 class ScratchDisplaySetPixelRequest(RPCRequest):
 
@@ -13,23 +8,6 @@ class ScratchDisplaySetPixelRequest(RPCRequest):
             'x': x,
             'y': y,
             'brightness': brightness
-        }, idx=idx)
-
-
-class ScratchDisplayImageRequest(RPCRequest):
-
-    def __init__(self, image: str, idx: str = None):
-        super().__init__('scratch.display_image', {
-            'image': image
-        }, idx=idx)
-
-
-class ScratchDisplayImageForRequest(RPCRequest):
-
-    def __init__(self, image: str, duration: int, idx: str = None):
-        super().__init__('scratch.display_image_for', {
-            'image': image,
-            'duration': duration
         }, idx=idx)
 
 
@@ -68,21 +46,3 @@ class ScratchDisplayImageForRequest(RPCRequest):
             'image': image,
             'duration': duration
         }, idx=idx)
-
-
-class ScratchDisplayClearRequest(RPCRequest):
-
-    def __init__(self, idx: str = None):
-        super().__init__('scratch.display_clear', {}, idx=idx)
-
-
-class ScratchDisplaySetPixelRequest(RPCRequest):
-
-    def __init__(self, x: int, y: int, brightness: int, idx: str = None):
-        super().__init__('scratch.display_set_pixel', {
-            'x': x,
-            'y': y,
-            'brightness': brightness
-        }, idx=idx)
-
-
