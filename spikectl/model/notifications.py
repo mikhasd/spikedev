@@ -7,6 +7,33 @@ from typing import List, Optional, Callable, Dict
 from spikectl.ujsonrpc import RPCNotification
 
 
+def _identity(arg): arg
+
+
+class ExternalSensorData:
+
+    __slots__ = ['type', 'data']
+
+    def __init__(self, type: SensorType, data: any):
+        self.type = type
+        self.data = data
+
+    def __str__(self):
+        return f'ExternalSensorData[type: {self.type}, data: {self.data}]'
+
+
+class MotorSensorData:
+
+    __slots__ = ['position', 'absolute_position']
+
+    def __init__(self, data: List[int]):
+        self.position = data[2]
+        self.absolute_position = data[3]
+
+    def __str__(self):
+        return f'MotorSensorData[position: {self.position}, absolute_position: {self.absolute_position}]'
+
+
 class SensorDataIndex(Enum):
     PortA = 0
     PortB = 1
@@ -22,9 +49,9 @@ class SensorDataIndex(Enum):
 
 
 class SensorType(Enum):
-    LPF2_FLIPPER_MOTOR_SMALL = 65, [1, 2, 3, 0]
-    LPF2_FLIPPER_MOTOR_MEDIUM = 48, [1, 2, 3, 0]
-    LPF2_FLIPPER_MOTOR_LARGE = 49, [1, 2, 3, 0]
+    LPF2_FLIPPER_MOTOR_SMALL = 65, [1, 2, 3, 0], MotorSensorData
+    LPF2_FLIPPER_MOTOR_MEDIUM = 48, [1, 2, 3, 0], MotorSensorData
+    LPF2_FLIPPER_MOTOR_LARGE = 49, [1, 2, 3, 0], MotorSensorData
     LPF2_FLIPPER_COLOR = 61, [1, 0]
     LPF2_FLIPPER_DISTANCE = 62
     LPF2_FLIPPER_FORCE = 63, [0, 1, 4]
@@ -41,12 +68,16 @@ class SensorType(Enum):
         return obj
 
     # noinspection PyUnusedLocal
-    def __init__(self, idx: int, modes: Optional[List[int]] = None):
-        super(Enum, self).__init__()
+    def __init__(self, idx: int, modes: Optional[List[int]] = None, data_decoder: Callable = _identity):
+        super().__init__()
         self.modes = modes if modes else [0]
+        self.decoder = data_decoder
 
     def __str__(self):
         return self.name
+
+    def decode(self, data: any) -> any:
+        return self.decoder(data)
 
     @classmethod
     def value_of(cls, idx: int) -> Optional[SensorType]:
@@ -81,12 +112,12 @@ def __format_external_sensor(data: any, idx: int):
     type_idx, values = data[idx]
     sensor_type = SensorType.value_of(type_idx)
     if sensor_type is None:
-        return None
+        return None    
 
-    return {
-        "type": sensor_type,
-        "data": values
-    }
+    return ExternalSensorData(
+        sensor_type,
+        sensor_type.decode(values)
+    )
 
 
 def _decode_sensor_notification(notification: RPCNotification) -> SensorNotification:
@@ -220,7 +251,7 @@ class NotificationType(Enum):
 
     # noinspection PyUnusedLocal
     def __init__(self, idx: int, decoder: Callable[[RPCNotification], BaseNotification] = _decode_unknown):
-        super(Enum, self).__init__()
+        super().__init__()
         self.decoder = decoder if decoder else lambda n: n
 
     def __str__(self):

@@ -32,7 +32,7 @@ class RawSerialHub(object):
             buffer = self.connection.read_until(expected=CR)
             if not buffer:
                 raise EmptyBuffer()
-            json_str = str(buffer, 'utf-8')
+            json_str = str(buffer, 'utf-8')            
             json_obj = json.loads(json_str)
             msg = ujsonrpc.decode(json_obj)            
             if not listener(msg):                
@@ -40,7 +40,7 @@ class RawSerialHub(object):
 
     def send(self, message: ujsonrpc.RPCRequest):        
         json_str = ujsonrpc.encode(message)
-        buffer = json_str.encode('utf-8')
+        buffer = json_str.encode('utf-8')        
         self.connection.write(buffer)
 
     def close(self):

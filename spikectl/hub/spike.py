@@ -54,7 +54,7 @@ class SpikeHub(RawSerialHub):
 
         match: Union[ujsonrpc.RPCResponse, ujsonrpc.RPCError] = None
 
-        def response_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:
+        def response_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:            
             if msg.is_response() or msg.is_error():
                 if msg.id == idx:
                     nonlocal match
