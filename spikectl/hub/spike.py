@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Type, Optional, Union, Callable
+from typing import Type, Optional, Union, Callable, List
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -15,6 +15,7 @@ _DEFAULT_BAUDRATE = 115200
 
 class SpikeHubException(Exception): pass
 
+HubTask = Callable[[ujsonrpc.RPCBaseMessage], bool]
 
 class SpikeHub(RawSerialHub):
 
@@ -49,32 +50,27 @@ class SpikeHub(RawSerialHub):
             return match
         except EmptyBuffer:
             return None
-
-    def listen_response(self, idx: str) -> Optional[Union[ujsonrpc.RPCResponse, ujsonrpc.RPCError]]:
-
-        match: Union[ujsonrpc.RPCResponse, ujsonrpc.RPCError] = None
-
-        def response_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:            
-            if msg.is_response() or msg.is_error():
-                if msg.id == idx:
-                    nonlocal match
-                    match = msg
-                    return False
-            return True
-        
-        try:
-            self.listen(response_listener)
-            return match
-        except EmptyBuffer:
-            return None
     
+    def wait(self, *tasks: List[HubTask]):
+
+        def task_wait_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:
+            nonlocal tasks
+            tasks = [task for task in tasks if not task(msg)]            
+            return len(tasks) > 0
     
-    def _invoke(self, request: ujsonrpc.RPCRequest) -> Optional[any]:
+        self.listen(task_wait_listener)
+
+    def _invoke(self, request: ujsonrpc.RPCRequest) -> HubTask:
         self.send(request)
-        response = self.listen_response(request.id)
-        if response.is_error():
-            raise SpikeHubException(response.exception)
-        return response.result
+
+        def response_listener(msg: ujsonrpc.RPCBaseMessage) -> bool:
+            nonlocal request
+            if msg.is_response() or msg.is_error():                
+                return msg.id == request.id
+            return False
+            
+
+        return response_listener
     
     def trigger_current_state(self):
         request = TriggerCurrentStateRequest()
@@ -104,29 +100,29 @@ class Display:
         request = ScratchDisplayClearRequest()
         self.hub._invoke(request)
 
-    def set_pixel(self, x: int, y: int, brightness: int):
+    def set_pixel(self, x: int, y: int, brightness: int) -> HubTask:
         assert 0 <= x <= 4 and 0 <= y <= 4 , 'x and y must be between 0 and 4'
         request = ScratchDisplaySetPixelRequest(x, y, brightness)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def display_image(self, image: str, duration: int = 0):
+    def display_image(self, image: str, duration: int = 0) -> HubTask:
         assert image is not None, 'image must be present'
         assert len(image) is 29, 'image must be present'
         if duration is None:
             request = ScratchDisplayImageRequest(image)
         else:
             request = ScratchDisplayImageForRequest(image, duration)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def display_text(self, text: str):
+    def display_text(self, text: str) -> HubTask:
         assert text is not None, 'tex is expected'
         request = ScratchDisplayTextRequest(text)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
         
-    def set_button_color(self, color: int):
+    def set_button_color(self, color: int) -> HubTask:
         assert 0 <= color <= 10, 'color must be between 0 and 10'
         request = ScratchCenterButtonLightRequest(color)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
 
 class Motor:
@@ -137,44 +133,44 @@ class Motor:
         self.hub = hub
         self.port = port
 
-    def run_timed(self, time: int, speed: int, stall: bool = True, stop: int = 1):
+    def run_timed(self, time: int, speed: int, stall: bool = True, stop: int = 1) -> HubTask:
         assert time >= 0, 'time must be a positive number of milliseconds'
-        assert -100 <= speed <= 100, 'speed must be between -100 and 100 per cent'
+        assert -100 <= speed <= 100, f'speed must be between -100 and 100 per cent: {speed}'
         request = MotorRunTimedRequest(self.port, time, speed, stall, stop)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def go_to_relative(self, position: int, speed: int, stall: bool = True, stop: int = 1):
-        assert -100 <= speed <= 100, 'speed must be between -100 and 100 per cent'
+    def go_to_relative(self, position: int, speed: int, stall: bool = True, stop: int = 1) -> HubTask:
+        assert -100 <= speed <= 100, f'speed must be between -100 and 100 per cent: {speed}'
         request = MotorGoToRelativePositionRequest(self.port, position, speed, stall, stop)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def start(self, speed: int, stall: bool = True, stop: int = 1):        
-        assert -100 <= speed <= 100, 'speed must be between -100 and 100 per cent'
-        request = MotorStartRequest(self.port, speed, stall, stop)
-        self.hub._invoke(request)
+    def start(self, speed: int, stall: bool = True) -> HubTask:
+        assert -100 <= speed <= 100, f'speed must be between -100 and 100 per cent: {speed}'
+        request = MotorStartRequest(self.port, speed, stall)
+        return self.hub._invoke(request)
 
-    def stop(self, stop: int = 1):                
+    def stop(self, stop: int = 1) -> HubTask:
         request = MotorStopRequest(self.port, stop)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def power(self, power: int, stall: bool = True):
+    def power(self, power: int, stall: bool = True) -> HubTask:
         assert -100 <= power <= 100, 'power must be between -100 and 100 per cent'
         request = MotorPowerRequest(self.port, power, stall)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def set_current_position(self, offset: int):
+    def set_current_position(self, offset: int) -> HubTask:
         request = MotorSetPositionRequest(self.port, offset)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def rotate(self, speed: int, degrees: int, stall: bool = True, stop: int = 1):
-        assert -100 <= speed <= 100, 'speed must be between -100 and 100 per cent'
+    def rotate(self, speed: int, degrees: int, stall: bool = True, stop: int = 1) -> HubTask:
+        assert -100 <= speed <= 100, f'speed must be between -100 and 100 per cent: {speed}'
         request = MotorRunForDegreesRequest(self.port, speed, degrees, stall, stop)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
-    def go_to(self, speed: int, position: int, direction: str = 'shortest', stall: bool = True, stop: int = 1):
-        assert -100 <= speed <= 100, 'speed must be between -100 and 100 per cent'
+    def go_to(self, speed: int, position: int, direction: str = 'shortest', stall: bool = True, stop: int = 1) -> HubTask:
+        assert -100 <= speed <= 100, f'speed must be between -100 and 100 per cent: {speed}'
         request = MotorGoDirectionToPositionRequest(self.port, speed, position, direction, stall, stop)
-        self.hub._invoke(request)
+        return self.hub._invoke(request)
 
 
 def find_hub(name: str) -> SpikeHub:

@@ -1,4 +1,4 @@
-from spikectl.model.notifications import SensorNotification
+from spikectl.model.notifications import MotorSensorData, SensorNotification
 from typing import List, Tuple
 import spikectl
 import spikectl.model
@@ -17,40 +17,65 @@ def calculate_gear_ratio(first: int, axes: List[Tuple[int, int]], last: int) -> 
 def main():
     spike_hub = spikectl.find_hub('mp8')    
     
-    wrist_angle_motor = spike_hub.motor('D')
-    wrist_angle_ratio = calculate_gear_ratio(8, [(24, 16), (16, 12), (12, 12)], 60)
+    wrist_angle_motor = spike_hub.motor('D')    
+    wrist_angle_ratio = calculate_gear_ratio(8, [(24, 16), (16, 12), (12, 12)], 60)    
     
     wrist_rotation_motor = spike_hub.motor('F')
     wrist_rotation_ratio = calculate_gear_ratio(16, [(16, 12)], 60)
-    
     angle_vs_rotation_ratio = wrist_angle_ratio / wrist_rotation_ratio
 
     hand_motor = spike_hub.motor('B')
+    tower_motor = spike_hub.motor('E')
     
+    motors = [wrist_angle_motor, wrist_rotation_motor, hand_motor]
 
     try:
-        print(spike_hub.listen_notification(SensorNotification).B)
         
-        #for _ in range(12):
-        degress = 180        
-        hand_motor.rotate(-100, 2900)
+        spike_hub.wait(*[ motor.go_to(100, 0) for motor in motors])
+        spike_hub.wait(*[ motor.set_current_position(0) for motor in motors])
 
-        print(spike_hub.listen_notification(SensorNotification).B)
-
-        hand_motor.rotate(-85, 1111)
-
-
-        hand_motor.go_to(100, 0)
-
-        print(spike_hub.listen_notification(SensorNotification).B)
+        angle = 210
         
+        spike_hub.wait(
+            hand_motor.rotate(100, 360)
+        )
+        spike_hub.wait(            
+            hand_motor.rotate(-100, 360)
+        )
 
-        print(spike_hub.listen_notification(SensorNotification).B)
+        spike_hub.wait(
+            hand_motor.rotate((-100/wrist_angle_ratio) * 1.666666, 150),
+            wrist_angle_motor.rotate(100, 90 * wrist_angle_ratio)
+        )
+
+        spike_hub.wait(
+            hand_motor.rotate((100/wrist_angle_ratio) * 1.666666, 150),
+            wrist_angle_motor.rotate(-100, 90 * wrist_angle_ratio)
+        )
         
-    except KeyboardInterrupt:
-        wrist_rotation_motor.stop()
-        wrist_angle_motor.stop()
+        spike_hub.wait(
+            wrist_angle_motor.rotate(100 * (angle_vs_rotation_ratio / wrist_rotation_ratio), angle * angle_vs_rotation_ratio * 0.5),
+            wrist_rotation_motor.rotate(100, angle * wrist_rotation_ratio * 0.5),
+            hand_motor.rotate(-100 * (1 / wrist_rotation_ratio), angle* 0.5)
+        )
+        
+        spike_hub.wait(
+            wrist_angle_motor.rotate(-100 * float(angle_vs_rotation_ratio / wrist_rotation_ratio), angle * angle_vs_rotation_ratio),
+            wrist_rotation_motor.rotate(-100, angle * wrist_rotation_ratio),
+            hand_motor.rotate(100 * (1 / wrist_rotation_ratio), angle)            
+        )
 
+        spike_hub.wait(
+            wrist_angle_motor.rotate(100 * (angle_vs_rotation_ratio / wrist_rotation_ratio), angle * angle_vs_rotation_ratio * 0.5),
+            wrist_rotation_motor.rotate(100, angle * wrist_rotation_ratio * 0.5),
+            hand_motor.rotate(-100 * (1 / wrist_rotation_ratio), angle* 0.5)
+        )        
+        
+    except KeyboardInterrupt as err:
+        print(err)
+
+    spike_hub.wait(*[ task.stop() for task in motors])
+    
     spike_hub.close()
 
 

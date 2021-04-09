@@ -27,8 +27,8 @@ class MotorSensorData:
     __slots__ = ['position', 'absolute_position']
 
     def __init__(self, data: List[int]):
-        self.position = data[2]
-        self.absolute_position = data[3]
+        self.position = data[1]
+        self.absolute_position = data[2]
 
     def __str__(self):
         return f'MotorSensorData[position: {self.position}, absolute_position: {self.absolute_position}]'
@@ -277,7 +277,13 @@ class SensorNotification(BaseNotification):
 
     __slots__ = ['accelerometer', 'gyroscope', 'position', 'time', 'leds', 'A', 'B', 'C', 'D', 'E', 'F']
 
-    def __init__(self, accelerometer, gyroscope, position, time, leds, a, b, c, d, e, f):
+    def __init__(self, accelerometer, gyroscope, position, time, leds,
+        a: Optional[ExternalSensorData],
+        b: Optional[ExternalSensorData],
+        c: Optional[ExternalSensorData],
+        d: Optional[ExternalSensorData],
+        e: Optional[ExternalSensorData],
+        f: Optional[ExternalSensorData]):
         self.accelerometer = accelerometer
         self.gyroscope = gyroscope
         self.position = position

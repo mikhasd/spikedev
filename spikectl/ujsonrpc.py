@@ -84,7 +84,7 @@ class RPCRequest(RPCBaseMessage):
     __slots__ = ['id', 'method', 'parameters']
 
     def __init__(self, method: str, parameters: any, idx: str):
-        self.id = idx if idx else gen_idx()
+        self.id = idx if idx else gen_idx()        
         self.method = method
         self.parameters = parameters
 

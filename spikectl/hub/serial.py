@@ -32,10 +32,13 @@ class RawSerialHub(object):
             buffer = self.connection.read_until(expected=CR)
             if not buffer:
                 raise EmptyBuffer()
-            json_str = str(buffer, 'utf-8')            
-            json_obj = json.loads(json_str)
+            json_str = str(buffer, 'utf-8')
+            try:                        
+                json_obj = json.loads(json_str)
+            except json.decoder.JSONDecodeError:
+                continue
             msg = ujsonrpc.decode(json_obj)            
-            if not listener(msg):                
+            if not listener(msg):
                 return
 
     def send(self, message: ujsonrpc.RPCRequest):        
