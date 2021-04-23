@@ -1,0 +1,27 @@
+{
+  "name": "spikedev",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/mikhasd/spikedev.git"
+  },
+  "keywords": [
+    "lego",
+    "spike"
+  ],
+  "author": "Mikhail Domanoski",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/mikhasd/spikedev/issues"
+  },
+  "homepage": "https://github.com/mikhasd/spikedev#readme",
+  "dependencies": {
+    "serialport": "^9.0.7"
+  }
+}
