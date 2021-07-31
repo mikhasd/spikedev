@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "checkJs": true,
+        "alwaysStrict": true,
+        "charset": "utf-8"
+    },
+    "exclude": [
+        "./node_modules/**/*.js"
+    ]
+}

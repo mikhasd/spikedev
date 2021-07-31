@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/mikhasd/spikedev#readme",
   "dependencies": {
+    "@serialport/list": "^9.2.0",
     "serialport": "^9.0.7"
   }
 }
