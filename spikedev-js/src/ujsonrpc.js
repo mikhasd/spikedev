@@ -1,9 +1,10 @@
+import { Transform } from 'stream'
+
 const RPC_KEY_ID = 'i'
 const RPC_KEY_METHOD = 'm'
 const RPC_KEY_RESULT = 'r'
 const RPC_KEY_ERROR = 'e'
 const RPC_KEY_PARAMETERS = 'p'
-const CR = '\r'
 
 export class RPCMessage {
     /**

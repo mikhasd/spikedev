@@ -2,7 +2,13 @@
     "compilerOptions": {
         "checkJs": true,
         "alwaysStrict": true,
-        "charset": "utf-8"
+        "charset": "utf-8",
+        "module": "es2020",
+        "target": "es2020",
+        "moduleResolution": "node"
+    },
+    "typeAcquisition": {
+        "enable": true
     },
     "exclude": [
         "./node_modules/**/*.js"
