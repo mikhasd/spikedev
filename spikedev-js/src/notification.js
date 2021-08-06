@@ -1,25 +1,23 @@
 import { RPCNotification } from "./ujsonrpc.js"
 
 export class Notification {
-    #timestamp = new Date()
     /**
-     * @type {Object.<string, any>}
+     * @type {RPCNotification}
      */
     #source
 
     /**
-     * @param {Object.<string, any>} source 
+     * @param {RPCNotification} source 
      */
     constructor(source) {
         this.#source = source
     }
 
+    /**
+     * @returns {RPCNotification}
+     */
     get source() {
         return this.#source
-    }
-
-    get timestamp() {
-        return this.#timestamp
     }
 }
 
@@ -181,7 +179,7 @@ export class SensorNotification extends Notification {
     }
 
     toString(){
-        return `SensorNotification {timestamp: ${this.timestamp}, accelerometer: ${this.#accelerometer}, gyroscope: ${this.#gyroscope}, ` +
+        return `SensorNotification {accelerometer: ${this.#accelerometer}, gyroscope: ${this.#gyroscope}, ` +
             `position: ${this.#position}, time: ${this.#time}, leds: ${this.#leds}, A: ${this.#a}, B: ${this.#b}, ` +
             `C: ${this.#c}, D: ${this.#d}, E: ${this.#e}, F: ${this.#f}}`
     }
@@ -200,7 +198,7 @@ export class SensorNotification extends Notification {
         const e = formatExternalSensor(data, SensorData.PortE)
         const f = formatExternalSensor(data, SensorData.PortF)
         return new SensorNotification(
-            notification.parameters,
+            notification,
             accelerometer,
             gyroscope,
             position,
@@ -243,35 +241,37 @@ export class StorageInformationNotification extends Notification {
         super(source)
     }
 
+    get #data(){
+        return this.source.parameters.data
+    }
+
     get total() {
-        return this.source['total']
+        return this.#data['total']
     }
 
     get available() {
-        return this.source['available']
+        return this.#data['available']
     }
 
     get pct() {
-        return this.source['pct']
+        return this.#data['pct']
     }
 
     get unit() {
-        return this.source['unit']
+        return this.#data['unit']
     }
 
     get slots() {
-        return this.source['slots']
+        return this.#data['slots']
     }
 
     toString(){
         return `StorageInformationNotification {total: ${this.total}, available: ${this.available}, pct: ${this.pct}, unit: ${this.unit}, slots: ${this.slots}}`
     }
 
-    static decode(notification) {
-        const data = notification.parameters
-        const storage = data['storage']
+    static decode(notification) {        
         return new StorageInformationNotification(
-            storage
+            notification
         )
     }
 }
@@ -287,11 +287,11 @@ export class BatteryStatusNotification extends Notification {
     }
 
     get voltage() {
-        return this.source[BATTERY_VOLTAGE_IDX]
+        return this.source.parameters[BATTERY_VOLTAGE_IDX]
     }
 
     get percentage() {
-        return this.source[BATTERY_PERCENTAGE_IDX]
+        return this.source.parameters[BATTERY_PERCENTAGE_IDX]
     }
 
     toString(){
@@ -299,15 +299,308 @@ export class BatteryStatusNotification extends Notification {
     }
 
     static decode(notification) {        
-        return new BatteryStatusNotification(notification.parameters)
+        return new BatteryStatusNotification(notification)
     }
 }
 
+const BUTTON_BUTTON_IDX = 0
+const BUTTON_STATE_IDX = 1
+
+export class ButtonNotification extends Notification {
+    static method = 3
+
+    constructor(source) {
+        super(source)
+    }
+
+    get button() {
+        return this.source.parameters[BUTTON_BUTTON_IDX]
+    }
+
+    get state() {
+        return this.source.parameters[BUTTON_STATE_IDX] > 0
+    }
+
+    toString(){
+        return `ButtonNotification {button: ${this.button}, state: ${this.state}}`
+    }
+
+    static decode(notification) {        
+        return new ButtonNotification(notification)
+    }
+}
+
+export class GestureNotification extends Notification {
+    static method = 4
+
+    constructor(source) {
+        super(source)
+    }
+
+    get gesture() {
+        return this.source.parameters
+    }
+
+    toString(){
+        return `GestureNotification {gesture: ${this.gesture}}`
+    }
+
+    static decode(notification) {        
+        return new GestureNotification(notification)
+    }
+}
+
+export class DisplayStatusNotification extends Notification {
+    static method = 5
+
+    constructor(source) {
+        super(source)
+    }
+
+    toString(){
+        return `DisplayStatusNotification {}`
+    }
+
+    static decode(notification) {        
+        return new DisplayStatusNotification(notification)
+    }
+}
+
+const FIRMWARE_VERSION_IDX = 0
+const FIRMWARE_HASH_IDX = 1
+const FIRMWARE_RUNTIME_IDX = 2
+
+export class FirmwareNotification extends Notification {
+    static method = 6
+
+    constructor(source) {
+        super(source)
+    }
+
+    get version(){
+        return this.source.parameters[FIRMWARE_VERSION_IDX]
+    }
+
+    get hash(){
+        return this.source.parameters[FIRMWARE_HASH_IDX]
+    }
+
+    get runtime(){
+        return this.source.parameters[FIRMWARE_RUNTIME_IDX]
+    }
+
+    toString(){
+        return `FirmwareNotification {version: ${this.version}, hash: ${this.hash}, runtime: ${this.runtime}}`
+    }
+
+    static decode(notification) {        
+        return new FirmwareNotification(notification)
+    }
+}
+
+export class StackStartNotification extends Notification {
+    static method = 7
+
+    constructor(source) {
+        super(source)
+    }
+
+    get stack() {
+        return this.source.parameters
+    }
+
+    toString(){
+        return `StackStartNotification {stack: ${this.stack}}`
+    }
+
+    static decode(notification) {        
+        return new StackStartNotification(notification)
+    }
+}
+
+export class StackStopNotification extends Notification {
+    static method = 8
+
+    constructor(source) {
+        super(source)
+    }
+
+    get stack() {
+        return this.source.parameters
+    }
+
+    toString(){
+        return `StackStopNotification {stack: ${this.stack}}`
+    }
+
+    static decode(notification) {        
+        return new StackStopNotification(notification)
+    }
+}
+
+export class InfoNotification extends Notification {
+    static method = 9
+
+    #name
+
+    constructor(source, name){
+        super(source)
+        this.#name = name
+    }
+
+    get name(){
+        return this.#name
+    }
+
+    toString(){
+        return `InfoNotification {name: ${this.name}}`
+    }
+
+    static decode(notification){
+        const [encodedName] = notification.parameters
+        const name = Buffer.from(encodedName, 'base64')
+        return new InfoNotification(notification, name)
+    }
+}
+
+const ERROR_TYPE_IDX = 0
+const ERROR_MESSAGE_IDX = 1
+
+export class ErrorNotification extends Notification {
+    static method = 10
+
+    constructor(source) {
+        super(source)
+    }
+
+    get type() {
+        return this.source.parameters[ERROR_TYPE_IDX]
+    }
+
+    get message() {
+        return this.source.parameters[ERROR_MESSAGE_IDX]
+    }
+
+    toString(){
+        return `ErrorNotification {type: ${this.type}, message: ${this.message}}`
+    }
+
+    static decode(notification) {        
+        return new ErrorNotification(notification)
+    }
+}
+
+const VM_STATE_TARGET_IDX = 0
+const VM_STATE_VARIABLES_IDX = 1
+const VM_STATE_LIST_IDX = 2
+const VM_STATE_STORE_IDX = 3
+
+export class VMStateNotification extends Notification {
+    static method = 11
+
+    constructor(source) {
+        super(source)
+    }
+
+    get target() {
+        return this.source.parameters[VM_STATE_TARGET_IDX]
+    }
+
+    get variables() {
+        return this.source.parameters[VM_STATE_VARIABLES_IDX]
+    }
+
+    get list() {
+        return this.source.parameters[VM_STATE_LIST_IDX]
+    }
+
+    get store() {
+        return this.source.parameters[VM_STATE_STORE_IDX]
+    }    
+
+    toString(){
+        return `VMStateNotification {target: ${this.target}, variables: ${this.variables}, list: ${this.list}, store: ${this.store}}`
+    }
+
+    static decode(notification) {        
+        return new VMStateNotification(notification)
+    }
+}
+
+const PROGRAM_PROJECT_IDX = 0
+const PROGRAM_RUNNING_IDX = 1
+
+export class ProgramRunningNotification extends Notification {
+    static method = 12
+
+    constructor(source) {
+        super(source)
+    }
+
+    get project() {
+        return this.source.parameters[PROGRAM_PROJECT_IDX]
+    }
+
+    get running() {
+        return this.source.parameters[PROGRAM_RUNNING_IDX]
+    }
+
+    toString(){
+        return `ProgramRunningNotification {project: ${this.project}, running: ${this.running}}`
+    }
+
+    static decode(notification) {        
+        return new ProgramRunningNotification(notification)
+    }
+}
+
+export class UserProgramPrintNotification extends Notification {
+    static method = 'userProgram.print'
+
+    constructor(source) {
+        super(source)
+    }
+
+    toString(){
+        return `UserProgramPrintNotification {source: ${this.source}}`
+    }
+
+    static decode(notification) {        
+        return new UserProgramPrintNotification(notification)
+    }
+}
+
+const RUNTIME_ERROR_STACKTRACE_IDX = 3
+
+export class RuntimeErrorNorification extends Notification {
+    static method = 'runtime_error'
+
+    #stacktrace
+
+    constructor(source, stacktrace) {
+        super(source)
+        this.#stacktrace = stacktrace
+    }
+
+    get stackTrace(){
+        return this.#stacktrace
+    }
+
+    toString(){
+        return `RuntimeErrorNorification {source: ${this.source}}`
+    }
+
+    static decode(notification) {
+        const encodedStackTrace = notification.parameters[RUNTIME_ERROR_STACKTRACE_IDX]
+        const stacktrace = Buffer.from(encodedStackTrace, 'base64').toString()
+        return new RuntimeErrorNorification(notification, stacktrace)
+    }
+}
 
 /**
  * @typedef {string|number} MethodKey
  * 
- * @typedef {(arg0: RPCNotification)=>any} NotificationDecoder
+ * @typedef {(arg0: RPCNotification)=>Notification} NotificationDecoder
  * /
  * 
  /**
@@ -317,7 +610,18 @@ const decoders = new Map(
     [
         SensorNotification,
         StorageInformationNotification,
-        BatteryStatusNotification
+        BatteryStatusNotification,
+        ButtonNotification,
+        GestureNotification,
+        DisplayStatusNotification,
+        FirmwareNotification,
+        StackStartNotification,
+        StackStopNotification,
+        InfoNotification,
+        ErrorNotification,
+        VMStateNotification,
+        ProgramRunningNotification,
+        RuntimeErrorNorification,
     ].map(type => [type.method, type.decode])
 )
 

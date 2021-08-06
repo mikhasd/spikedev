@@ -4,7 +4,6 @@ import * as ujsonrpc from './ujsonrpc.js'
 
 const CR = '\r'
 
-
 export class Channel {    
     /**
      * @type {SerialPort}
@@ -52,6 +51,24 @@ export class Channel {
     }
 
     /**
+     * @param {ujsonrpc.RPCRequest} request
+     * @returns {Promise<void>}
+     */
+    async send(request) {
+        const encoded = request.encode()
+        const message = encoded + CR
+        return new Promise((resolve, reject)=>{
+            this.#serialPort.write(message, err => {
+                if(err){
+                    reject(err)
+                }else{
+                    resolve()
+                }
+            })
+        })
+    }
+
+    /**
      * 
      * @param {RPCMessageListener} listener 
      */
@@ -90,7 +107,7 @@ export class Channel {
     static async open(path){
         let serialPort = new SerialPort(path, {
             autoOpen: false,
-            baudRate: 115200
+            baudRate: 115200,            
         })
 
         return new Promise((resolve, reject) => {

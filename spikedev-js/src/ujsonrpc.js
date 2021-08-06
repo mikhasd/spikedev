@@ -48,6 +48,10 @@ export class RPCNotification extends RPCMessage {
     isNotification() {
         return true
     }
+
+    toString(){
+        return `RPCNotification {method: ${this.method}, parameters: ${this.parameters}}`
+    }
 }
 
 export class RPCError extends RPCMessage {
@@ -58,7 +62,7 @@ export class RPCError extends RPCMessage {
     constructor(idx, exceptionData) {
         super()
         this.idx = idx
-        let decoded = Buffer.from(exceptionData)
+        let decoded = Buffer.from(exceptionData, 'base64')
         this.exceptionData = decoded.toString('utf8')
     }
 
@@ -95,11 +99,11 @@ export class RPCRequest extends RPCMessage {
      * 
      * @param {string} method 
      * @param {any} parameters 
-     * @param {string?} idx 
+     * @param {string} [idx]
      */
-    constructor(method, parameters, idx = genIdx()) {
+    constructor(method, parameters, idx = null) {
         super()
-        this.idx = idx
+        this.idx = idx || genIdx()
         this.method = method
         this.parameters = parameters
     }
@@ -110,9 +114,9 @@ export class RPCRequest extends RPCMessage {
 
     encode() {
         return JSON.stringify({
-            RPC_KEY_ID: this.idx,
-            RPC_KEY_METHOD: this.method,
-            RPC_KEY_PARAMETERS: this.parameters
+            [RPC_KEY_ID]: this.idx,
+            [RPC_KEY_METHOD]: this.method,
+            [RPC_KEY_PARAMETERS]: this.parameters
         })
     }
 }
@@ -169,7 +173,7 @@ export function decode(msg) {
         return new RPCResponse(idx, result)
     } else if (isError(msg)) {
         const idx = msg[RPC_KEY_ID]
-        const error = msg[RPC_KEY_ERROR]
+        const error = msg[RPC_KEY_ERROR]        
         return new RPCError(idx, error)
     } else if (isRequest(msg)) {
         const idx = msg[RPC_KEY_ID]
